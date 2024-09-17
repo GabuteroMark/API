@@ -92,7 +92,7 @@ function updateSchema(req, res, next) {
     validateRequest(req, next, schema);
 }
 
-//====================Update role route===============================================
+//pdate role route
 function updateRole(req, res, next) {
     userService.update(req.params.id, req.body)
     .then(() => res.json({ message: 'Role updated' }))
@@ -104,7 +104,7 @@ function updateRoleSchema(req, res, next) {
     })
     validateRequest(req, next, schema);
 }
-//====================Preferences Router Function=========================
+//Preferences Router Function
 function getPreferences(req, res, next) {
     userService.getPreferences(req.params.id)
         .then(preferences => res.json(preferences))
@@ -115,7 +115,7 @@ function updatePreferences(req, res, next) {
         .then(() => res.json({ message: 'Preferences updated successfully' }))
         .catch(next);
 }
-//===================Change Password Function=======================================
+//Change Password Function
 function changePass(req, res, next) {
     // Add IP address and browser info to the request body if available
     req.body.ipAddress = req.ip || 'Unknown IP';
@@ -133,7 +133,7 @@ function changePassSchema(req, res, next) {
     })
     validateRequest(req, next, schema);
 }
-//====================Login with Token Function=========================
+//Login with Token Function
 function login(req, res, next) {
     const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
@@ -149,7 +149,7 @@ function loginSchema(req, res, next) {
     });
     validateRequest(req, next, schema);
 }
-//====================Logout Function=========================
+//Logout Function
 function logout(req, res, next) {
     const id = req.params.id; // Extract user ID from the route params
     const ipAddress = req.ip || 'Unknown IP'; // Extract IP address from the request object
@@ -160,7 +160,7 @@ function logout(req, res, next) {
         .then(response => res.json(response))
         .catch(next);
 }
-//====================Deactivate & Reactivate Function=========================
+//Deactivate & Reactivate Function
 function deactivateUser(req, res, next) {
     userService.deactivate(req.params.id)
         .then(() => res.json({ message: 'User deactivated successfully' }))
@@ -171,7 +171,7 @@ function reactivateUser(req, res, next) {
         .then(() => res.json({ message: 'User reactivated successfully' }))
         .catch(next);
 }
-//===================Logging Function=======================================
+//Logging Function
 function getActivities(req, res, next) {
     const filters = {
         actionType: req.query.actionType,
@@ -182,7 +182,7 @@ function getActivities(req, res, next) {
         .then(activities => res.json(activities))
         .catch(next);
 }
-//===================Search Route========================================
+//Search Route
 function search(req, res, next) {
     const { email, title, firstName, lastName, role, fullName, status, dateCreated, lastDateLogin} = req.query;
 
@@ -205,7 +205,7 @@ function searchAll(req, res, next) {
         .then(users => res.json(users))
         .catch(next);
 }
-//===================Permission Route========================================
+//Permission Route
 function getPermission(req, res, next) {
     userService.getPermission(req.params.id)
         .then(permission => res.json(permission))

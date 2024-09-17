@@ -4,7 +4,6 @@ const Joi = require('joi');
 const validateRequest = require('_middleware/validate-request');
 const Role = require('_helpers/role');
 const userService = require('./user.service');
-const Actions = require('_helpers/actions');
 
 router.get('/', getAll); 
 router.get('/search', search);
@@ -17,18 +16,19 @@ router.delete('/:id', _delete);
 router.put('/:id/role', updateRoleSchema, updateRole);
 
 router.get('/:id/preferences', getPreferences);
-router.put('/:id/preferences', updatePreferencesSchema, updatePreferences);
+router.put('/:id/preferences', updatePreferences);
 
 router.put('/:id/password', changePassSchema, changePass);
 
 router.post('/login', loginSchema, login);
+router.post('/:id/logout', logout);
 router.get('/:id/activity', getActivities);
 
 router.put('/:id/deactivate', deactivateUser);
 router.put('/:id/reactivate', reactivateUser);
 
 router.get('/:id/permission', getPermission);
-router.post('/:id/permission', createPermissionSchema, createPermission);
+router.post('/:id/permission', createPermission);
 
 
 module.exports = router;
@@ -49,9 +49,16 @@ function create(req, res, next) {
         .catch(next);
 }
 function update(req, res, next) {
-    userService.update(req.params.id, req.body)
-        .then(() => res.json({ message: 'User updated' }))
-        .catch(next);
+    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
+
+    userService.update(req.params.id, { 
+        ...req.body, 
+        ipAddress, 
+        browserInfo 
+    })
+    .then(() => res.json({ message: 'User updated' }))
+    .catch(next);
 }
 function _delete(req, res, next) {
     userService.delete(req.params.id)
@@ -85,7 +92,7 @@ function updateSchema(req, res, next) {
     validateRequest(req, next, schema);
 }
 
-//Update role route
+//====================Update role route===============================================
 function updateRole(req, res, next) {
     userService.update(req.params.id, req.body)
     .then(() => res.json({ message: 'Role updated' }))
@@ -97,7 +104,7 @@ function updateRoleSchema(req, res, next) {
     })
     validateRequest(req, next, schema);
 }
-//Preferences Router Function
+//====================Preferences Router Function=========================
 function getPreferences(req, res, next) {
     userService.getPreferences(req.params.id)
         .then(preferences => res.json(preferences))
@@ -108,20 +115,15 @@ function updatePreferences(req, res, next) {
         .then(() => res.json({ message: 'Preferences updated successfully' }))
         .catch(next);
 }
-function updatePreferencesSchema(req, res, next) {
-    const schema = Joi.object({
-        theme: Joi.string().valid(Actions.Theme1, Actions.Theme2).optional(),
-        notifications: Joi.boolean().optional(),
-        language: Joi.string().valid(Actions.Lang1, Actions.Lang2).optional()
-    });
-    validateRequest(req, next, schema);
-}
-
-//Change Password Function
+//===================Change Password Function=======================================
 function changePass(req, res, next) {
+    // Add IP address and browser info to the request body if available
+    req.body.ipAddress = req.ip || 'Unknown IP';
+    req.body.browserInfo = req.get('User-Agent') || 'Unknown Browser';
+
     userService.changePass(req.params.id, req.body)
-    .then(() => res.json({ message: 'Password updated' }))
-    .catch(next);
+        .then(() => res.json({ message: 'Password updated successfully' }))
+        .catch(next);
 }
 function changePassSchema(req, res, next) {
     const schema = Joi.object({
@@ -131,11 +133,14 @@ function changePassSchema(req, res, next) {
     })
     validateRequest(req, next, schema);
 }
-//Login with Token Function
+//====================Login with Token Function=========================
 function login(req, res, next) {
-    userService.login(req.body)
-        .then(({ token }) => res.json({ token }))
-        .catch(next);
+    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
+
+    userService.login({ ...req.body, ipAddress, browserInfo })
+    .then(({ token }) => res.json({ token }))
+    .catch(next);
 }
 function loginSchema(req, res, next) {
     const schema = Joi.object({
@@ -144,22 +149,32 @@ function loginSchema(req, res, next) {
     });
     validateRequest(req, next, schema);
 }
+//====================Logout Function=========================
+function logout(req, res, next) {
+    const id = req.params.id; // Extract user ID from the route params
+    const ipAddress = req.ip || 'Unknown IP'; // Extract IP address from the request object
+    const browserInfo = req.headers['user-agent'] || 'Unknown Browser'; // Extract browser info from headers
 
+    // Call the user service with the extracted information
+    userService.logout(id, { ipAddress, browserInfo })
+        .then(response => res.json(response))
+        .catch(next);
+}
+//====================Deactivate & Reactivate Function=========================
 function deactivateUser(req, res, next) {
     userService.deactivate(req.params.id)
-        .then(() => res.json({ message: 'User Deactivated Successfully' }))
+        .then(() => res.json({ message: 'User deactivated successfully' }))
         .catch(next);
 }
-
 function reactivateUser(req, res, next) {
     userService.reactivate(req.params.id)
-        .then(() => res.json({ message: 'User Reactivated Successfully' }))
+        .then(() => res.json({ message: 'User reactivated successfully' }))
         .catch(next);
 }
-//Logging Function
+//===================Logging Function=======================================
 function getActivities(req, res, next) {
     const filters = {
-        action: req.query.action,
+        actionType: req.query.actionType,
         startDate: req.query.startDate,
         endDate: req.query.endDate
     };
@@ -167,9 +182,7 @@ function getActivities(req, res, next) {
         .then(activities => res.json(activities))
         .catch(next);
 }
-
-//search route
-
+//===================Search Route========================================
 function search(req, res, next) {
     const { email, title, firstName, lastName, role, fullName, status, dateCreated, lastDateLogin} = req.query;
 
@@ -192,8 +205,7 @@ function searchAll(req, res, next) {
         .then(users => res.json(users))
         .catch(next);
 }
-
-//Permission Router
+//===================Permission Route========================================
 function getPermission(req, res, next) {
     userService.getPermission(req.params.id)
         .then(permission => res.json(permission))
@@ -203,12 +215,4 @@ function createPermission(req, res, next) {
     userService.updatePreferences(req.params.id, req.body)
         .then(() => res.json({ message: 'Access confirm' }))
         .catch(next);
-}
-function createPermissionSchema(req, res, next) {
-    const schema = Joi.object({
-        permission: Joi.string().valid(Actions.Grant, Actions.Revoke).optional(),
-        privileges: Joi.string().valid(Actions.Privilege1, Actions.Privilege2, Actions.Privilege3, Actions.Privilege4, Actions.Privilege5).optional(),
-        securable: Joi.string().optional()
-    });
-    validateRequest(req, next, schema);
 }

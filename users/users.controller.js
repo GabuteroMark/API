@@ -31,6 +31,7 @@ router.get('/:id/permission', getPermission);
 router.post('/:id/permission', createPermission);
 
 
+
 module.exports = router;
 
 function getAll(req, res, next) {
@@ -216,3 +217,4 @@ function createPermission(req, res, next) {
         .then(() => res.json({ message: 'Access confirm' }))
         .catch(next);
 }
+

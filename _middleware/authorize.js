@@ -11,7 +11,7 @@ function authorize(roles = []) {
             // User's role is not authorized
             return res.status(403).json({ message: 'Forbidden' });
         }
-
+        
         // Authorization success
         next();
     };

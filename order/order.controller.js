@@ -3,15 +3,15 @@ const router = express.Router();
 const Joi = require('joi');
 const validateRequest = require('_middleware/validate-request');
 const Role = require('_helpers/role');
-const orderService = require('./order.service'); // Updated to reflect orders service
+const orderService = require('./order.service'); // Assuming this service contains your CRUD logic
 const authorize = require('_middleware/authorize');
 
-
+// Routes
 router.get('/', authorize([Role.Admin, Role.Manager]), getAll);   
 router.get('/:id', authorize([Role.Admin, Role.Manager]), getById);
-router.post('/', createOrder, create);
-router.put('/:id', updateOrder, update);
-router.delete('/:id', cancel);
+router.post('/', authorize([Role.Customer]), createOrder, create); // Assuming only customer can create orders
+router.put('/:id', authorize([Role.Customer]), updateOrder, update);  // Assuming only customer can update orders
+router.delete('/:id', authorize([Role.Customer]), cancel); // Assuming only customer can cancel orders
 
 module.exports = router;
 
@@ -25,14 +25,17 @@ function getAll(req, res, next) {
 // Retrieve a specific order by ID (Only Admins and Managers can access this)
 function getById(req, res, next) {
     orderService.getById(req.params.id)
-        .then(order => res.json(order))
+        .then(order => {
+            if (!order) return res.status(404).send({ message: 'Order not found' });
+            res.json(order);
+        })
         .catch(next);
 }
 
 // Create a new order
 function create(req, res, next) {
     orderService.create(req.body)
-        .then(() => res.json({ message: 'Order Placed' }))
+        .then(() => res.status(201).json({ message: 'Order Placed' }))
         .catch(next);
 }
 
@@ -60,10 +63,9 @@ function cancel(req, res, next) {
 // Validate create order request
 function createOrder(req, res, next) {
     const schema = Joi.object({
-        productName: Joi.string().required(),
-        productDesc: Joi.string().required(),
-        quantity: Joi.number().integer().min(0).required(),
-        price: Joi.number().required()
+        customerId: Joi.number().integer().required(),
+        totalAmount: Joi.number().required(),
+        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional() // optional, defaults to 'pending'
     });
     validateRequest(req, next, schema);
 }
@@ -71,10 +73,10 @@ function createOrder(req, res, next) {
 // Validate update order request
 function updateOrder(req, res, next) {
     const schema = Joi.object({
-        productName: Joi.string().empty(''),
-        productDesc: Joi.string().empty(''),
-        quantity: Joi.number().integer().min(0).empty(''),
-        price: Joi.number().empty('')
+        customerId: Joi.number().integer().optional(),
+        totalAmount: Joi.number().optional(),
+        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
     });
     validateRequest(req, next, schema);
 }
+

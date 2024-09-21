@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('_helpers/db');
 const { Sequelize, Op } = require('sequelize');
+const Order = require('./OrderItem');
+const OrderItem = require('./OrderItem');
 
 module.exports = {
     createOrder,
@@ -13,15 +15,15 @@ module.exports = {
 
 async function createOrder(req, res) {
     try {
-        const { customerId, totalAmount, status } = req.body;
+        const { customerId, totalAmount, status, products } = req.body;
 
         // Validate input
-        if (!customerId || !totalAmount) {
-            return res.status(400).send({ message: 'Customer ID and total amount are required' });
+        if (!customerId || !totalAmount || !Array.isArray(products) || products.length === 0) {
+            return res.status(400).send({ message: 'Customer ID, total amount, and products are required' });
         }
 
-        // Create the order
-        const order = await Order.create({ customerId, totalAmount, status });
+        // Call the service layer to create the order
+        const order = await orderService.createOrder({ customerId, totalAmount, status, products });
         return res.status(201).send(order);
     } catch (error) {
         console.error(error);
@@ -43,10 +45,13 @@ async function getAllOrders(req, res) {
 // Get order by ID
 async function getOrderById(req, res) {
     try {
-        const order = await Order.findByPk(req.params.id);
+        const orderId = req.params.id;
+        const order = await Order.findByPk(orderId);
+
         if (!order) {
             return res.status(404).send({ message: 'Order not found' });
         }
+
         return res.status(200).send(order);
     } catch (error) {
         console.error(error);

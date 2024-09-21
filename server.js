@@ -4,6 +4,8 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 const errorHandler = require('_middleware/error-handler');
+const authenticateToken = require('_middleware/authenticateToken');
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

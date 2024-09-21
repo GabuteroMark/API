@@ -3,39 +3,44 @@ const router = express.Router();
 const Joi = require('joi');
 const validateRequest = require('_middleware/validate-request');
 const Role = require('_helpers/role');
-const orderService = require('./order.service'); // Assuming this service contains your CRUD logic
+const orderService = require('./order.service'); 
 const authorize = require('_middleware/authorize');
+const Order = require('./OrderItem');
+const OrderItem = require('./order.model');
+const validateCreateOrder = require('_middleware/validate-create-order');
+const authenticateToken = require('_middleware/authenticateToken');
 
 // Routes
-router.get('/', authorize([Role.Admin, Role.Manager]), getAll);   
-router.get('/:id', authorize([Role.Admin, Role.Manager]), getById);
-router.post('/', authorize([Role.Customer]), createOrder, create); // Assuming only customer can create orders
-router.put('/:id', authorize([Role.Customer]), updateOrder, update);  // Assuming only customer can update orders
+router.get('/', authenticateToken , authorize([Role.Admin, Role.Manager]),(req, res) => {getAllOrders});   
+router.get('/:id', authorize([Role.Admin, Role.Manager]), getOrderById);
+router.post('/', authorize([Role.Customer]), validateCreateOrder, createOrder);
+router.put('/:id', authenticateToken , authorize([Role.Customer]), updateOrder, update);  // Assuming only customer can update orders
 router.delete('/:id', authorize([Role.Customer]), cancel); // Assuming only customer can cancel orders
 
 module.exports = router;
 
 // Retrieve all orders (Only Admins and Managers can access this)
-function getAll(req, res, next) {
-    orderService.getAll()
+function getAllOrders(req, res, next) {
+    orderService.getAllOrders()
         .then(orders => res.json(orders))
         .catch(next);
 }
 
-// Retrieve a specific order by ID (Only Admins and Managers can access this)
-function getById(req, res, next) {
-    orderService.getById(req.params.id)
+function getOrderById(req, res, next) {
+    orderService.getOrderById(req.params.id)
         .then(order => {
-            if (!order) return res.status(404).send({ message: 'Order not found' });
+            if (!order) {
+                return res.status(404).send({ message: 'Order not found' });
+            }
             res.json(order);
         })
         .catch(next);
 }
 
 // Create a new order
-function create(req, res, next) {
-    orderService.create(req.body)
-        .then(() => res.status(201).json({ message: 'Order Placed' }))
+function createOrder(req, res, next) {
+    orderService.createOrder(req.body)
+        .then(order => res.status(201).json(order)) // Respond with the created order
         .catch(next);
 }
 
@@ -67,8 +72,26 @@ function createOrder(req, res, next) {
         totalAmount: Joi.number().required(),
         status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional() // optional, defaults to 'pending'
     });
-    validateRequest(req, next, schema);
+
+    const { error } = schema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const { customerId, totalAmount, status } = req.body;
+
+    Order.create({
+        customerId,
+        totalAmount,
+        status: status || 'pending', // Default to 'pending' if not provided
+    })
+    .then(order => res.status(201).json(order))
+    .catch(err => {
+        console.error('Error creating order:', err);
+        res.status(500).json({ message: 'Internal server error' });
+    });
 }
+
 
 // Validate update order request
 function updateOrder(req, res, next) {

@@ -7,18 +7,16 @@ function authorize(roles = []) {
     }
 
     return (req, res, next) => {
-        // Check if user is authenticated
         if (!req.user) {
-            return res.status(401).json({ message: 'Unauthorized: No user information found' });
+            return res.status(401).json({ message: 'Unauthorized' }); // No user object, so unauthorized
         }
 
-        // Check if user's role is authorized
-        if (roles.length && !roles.includes(req.user.role)) {
-            console.log(`Role ${req.user.role} not authorized to access this resource.`);
-            return res.status(403).json({ message: 'Forbidden: Access is denied for this role' });
+        if (!roles.includes(req.user.role)) {
+            // user's role is not authorized
+            return res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
         }
 
-        // Authorization success
+        // authorized
         next();
     };
 }

@@ -5,17 +5,26 @@ const validateRequest = require('_middleware/validate-request');
 const Role = require('_helpers/role');
 const orderService = require('./order.service'); 
 const authorize = require('_middleware/authorize');
-const Order = require('./OrderItem');
-const OrderItem = require('./order.model');
-const validateCreateOrder = require('_middleware/validate-create-order');
+//const Order = require('./OrderItem');
+//const OrderItem = require('./order.model');
+//const validateCreateOrder = require('_middleware/validate-create-order');
 const authenticateToken = require('_middleware/authenticateToken');
+//const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-// Routes
-router.get('/', authenticateToken , authorize([Role.Admin, Role.Manager]),(req, res) => {getAllOrders});   
-router.get('/:id', authorize([Role.Admin, Role.Manager]), getOrderById);
-router.post('/', authorize([Role.Customer]), validateCreateOrder, createOrder);
-router.put('/:id', authenticateToken , authorize([Role.Customer]), updateOrder, update);  // Assuming only customer can update orders
-router.delete('/:id', authorize([Role.Customer]), cancel); // Assuming only customer can cancel orders
+
+// Administrator/Manager
+router.get('/api/orders', authenticateToken, authorize(['Admin', 'Manager']), orderService.getAllOrders);
+router.get('/api/orders/:orderId', authenticateToken, authorize(['Admin', 'Manager']), orderService.getOrderById);
+router.put('/api/orders/:orderId', authenticateToken, authorize(['Admin', 'Manager']), orderService.updateOrder);
+router.put('/api/orders/:orderId/cancel', authenticateToken, authorize(['Customer', 'Admin', 'Manager']), orderService.cancelOrder);
+router.get('/api/orders/:orderId/status', authenticateToken, authorize(['Customer']), orderService.getOrderStatus);
+router.put('/api/orders/:orderId/process', authenticateToken, authorize(['Admin', 'Manager']), orderService.processOrder);
+router.put('/api/orders/:orderId/ship', authenticateToken, authorize(['Admin', 'Manager']), orderService.shipOrder);
+router.put('/api/orders/:orderId/deliver', authenticateToken, authorize(['Admin', 'Manager']), orderService.deliverOrder);
+
+// Customer
+router.post('/api/orders', authenticateToken, authorize(['Customer']), orderService.createOrder);
+router.get('/api/orders/:orderId/status', orderService.getOrderStatus);
 
 module.exports = router;
 
@@ -57,6 +66,27 @@ function update(req, res, next) {
     .then(() => res.json({ message: 'Order Updated' }))
     .catch(next);
 }
+
+function processOrder(req, res, next) {
+    orderService.updateOrderStatus(req.params.id, 'processed')
+        .then(() => res.json({ message: 'Order processed' }))
+        .catch(next);
+}
+
+function shipOrder(req, res, next) {
+    orderService.updateOrderStatus(req.params.id, 'shipped')
+        .then(() => res.json({ message: 'Order shipped' }))
+        .catch(next);
+}
+
+function deliverOrder(req, res, next) {
+    orderService.updateOrderStatus(req.params.id, 'delivered')
+        .then(() => res.json({ message: 'Order delivered' }))
+        .catch(next);
+}
+
+
+
 
 // Cancel an order
 function cancel(req, res, next) {

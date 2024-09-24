@@ -2,95 +2,138 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('_helpers/db');
 const { Sequelize, Op } = require('sequelize');
-const Order = require('./OrderItem');
-const OrderItem = require('./OrderItem');
+//const authenticateToken = require('./_middleware/authenticateToken');
+//const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
 module.exports = {
     createOrder,
     getAllOrders,
     getOrderById,
+    createOrder,
     updateOrder,
-    deleteOrder,
+    cancelOrder,
+    getOrderStatus,
+    processOrder,
+    shipOrder,
+    deliverOrder,
 };
 
-async function createOrder(req, res) {
+async function getAllOrders(req, res, next) {
     try {
-        const { customerId, totalAmount, status, products } = req.body;
-
-        // Validate input
-        if (!customerId || !totalAmount || !Array.isArray(products) || products.length === 0) {
-            return res.status(400).send({ message: 'Customer ID, total amount, and products are required' });
-        }
-
-        // Call the service layer to create the order
-        const order = await orderService.createOrder({ customerId, totalAmount, status, products });
-        return res.status(201).send(order);
-    } catch (error) {
-        console.error(error);
-        return res.status(500).send({ message: 'Error creating order' });
+        const orders = await db.Order.findAll(); // Assuming db is your database object
+        res.json(orders);
+    } catch (err) {
+        next(err); // Pass the error to the errorHandler
     }
 }
 
-// Get all orders
-async function getAllOrders(req, res) {
+async function getOrderById(req, res, next) {
     try {
-        const orders = await Order.findAll();
-        return res.status(200).send(orders);
-    } catch (error) {
-        console.error(error);
-        return res.status(500).send({ message: 'Error fetching orders' });
+        const order = await db.Order.findByPk(req.params.orderId);
+        if (!order) throw 'Order not found';
+        res.json(order);
+    } catch (err) {
+        next(err);
     }
 }
 
-// Get order by ID
-async function getOrderById(req, res) {
+async function createOrder(req, res, next) {
     try {
-        const orderId = req.params.id;
-        const order = await Order.findByPk(orderId);
-
-        if (!order) {
-            return res.status(404).send({ message: 'Order not found' });
+        const { customerId, totalAmount, items } = req.body; // Expecting customer ID and items to be in the request body
+        const newOrder = await db.Order.create({ customerId, totalAmount });
+        
+        // Assuming items need to be saved as well, and `OrderItem` is associated with `Order`
+        if (items && items.length > 0) {
+            await OrderItem.bulkCreate(items.map(item => ({
+                orderId: newOrder.id,
+                ...item // Assuming each item has the necessary fields
+            })));
         }
 
-        return res.status(200).send(order);
-    } catch (error) {
-        console.error(error);
-        return res.status(500).send({ message: 'Error fetching order' });
+        res.status(201).json(newOrder);
+    } catch (err) {
+        next(err);
     }
 }
 
-// Update an order
-async function updateOrder(req, res) {
+async function updateOrder(req, res, next) {
     try {
-        const order = await Order.findByPk(req.params.id);
-        if (!order) {
-            return res.status(404).send({ message: 'Order not found' });
-        }
+        const order = await db.Order.findByPk(req.params.orderId);
+        if (!order) throw 'Order not found';
 
-        const { customerId, totalAmount, status } = req.body;
-
-        // Update order details
-        await order.update({ customerId, totalAmount, status });
-        return res.status(200).send(order);
-    } catch (error) {
-        console.error(error);
-        return res.status(500).send({ message: 'Error updating order' });
+        // Only allow updating specific fields like status or shipping info
+        await order.update(req.body);
+        res.json(order);
+    } catch (err) {
+        next(err);
     }
 }
 
-// Delete an order
-async function deleteOrder(req, res) {
+async function cancelOrder(req, res, next) {
     try {
-        const order = await Order.findByPk(req.params.id);
-        if (!order) {
-            return res.status(404).send({ message: 'Order not found' });
-        }
+        const order = await db.Order.findByPk(req.params.orderId);
+        if (!order) throw 'Order not found';
 
-        // Delete the order
-        await order.destroy();
-        return res.status(204).send(); // No content to send back
-    } catch (error) {
-        console.error(error);
-        return res.status(500).send({ message: 'Error deleting order' });
+        if (order.status === 'cancelled') throw 'Order already cancelled';
+
+        // Allow only if it's not processed or shipped
+        await order.update({ status: 'cancelled' });
+        res.json(order);
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function getOrderStatus(req, res, next) {
+    try {
+        const order = await db.Order.findByPk(req.params.orderId, {
+            attributes: ['status'] // Only return status
+        });
+        if (!order) throw 'Order not found';
+        res.json({ status: order.status });
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function processOrder(req, res, next) {
+    try {
+        const order = await db.Order.findByPk(req.params.orderId);
+        if (!order) throw 'Order not found';
+
+        if (order.status !== 'pending') throw 'Order cannot be processed';
+
+        await order.update({ status: 'processed' });
+        res.json(order);
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function shipOrder(req, res, next) {
+    try {
+        const order = await db.Order.findByPk(req.params.orderId);
+        if (!order) throw 'Order not found';
+
+        if (order.status !== 'processed') throw 'Order cannot be shipped';
+
+        await order.update({ status: 'shipped' });
+        res.json(order);
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function deliverOrder(req, res, next) {
+    try {
+        const order = await db.Order.findByPk(req.params.orderId);
+        if (!order) throw 'Order not found';
+
+        if (order.status !== 'shipped') throw 'Order cannot be delivered';
+
+        await order.update({ status: 'delivered' });
+        res.json(order);
+    } catch (err) {
+        next(err);
     }
 }

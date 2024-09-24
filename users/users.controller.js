@@ -217,4 +217,3 @@ function createPermission(req, res, next) {
         .then(() => res.json({ message: 'Access confirm' }))
         .catch(next);
 }
-

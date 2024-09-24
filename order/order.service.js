@@ -2,8 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('_helpers/db');
 const { Sequelize, Op } = require('sequelize');
-//const authenticateToken = require('./_middleware/authenticateToken');
-//const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
 
 module.exports = {
     createOrder,

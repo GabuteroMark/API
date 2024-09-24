@@ -4,11 +4,6 @@ const Joi = require('joi');
 const Role = require('_helpers/role');
 const orderService = require('./order.service'); 
 const authorize = require('_middleware/authorize');
-//const Order = require('./OrderItem');
-//const OrderItem = require('./order.model');
-//const validateCreateOrder = require('_middleware/validate-create-order');
-//const authenticateToken = require('_middleware/authenticateToken');
-//const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
 
 // Administrator/Manager

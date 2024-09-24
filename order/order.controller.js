@@ -1,30 +1,28 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
-const validateRequest = require('_middleware/validate-request');
 const Role = require('_helpers/role');
 const orderService = require('./order.service'); 
 const authorize = require('_middleware/authorize');
 //const Order = require('./OrderItem');
 //const OrderItem = require('./order.model');
 //const validateCreateOrder = require('_middleware/validate-create-order');
-const authenticateToken = require('_middleware/authenticateToken');
+//const authenticateToken = require('_middleware/authenticateToken');
 //const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
 
 // Administrator/Manager
-router.get('/api/orders', authenticateToken, authorize(['Admin', 'Manager']), orderService.getAllOrders);
-router.get('/api/orders/:orderId', authenticateToken, authorize(['Admin', 'Manager']), orderService.getOrderById);
-router.put('/api/orders/:orderId', authenticateToken, authorize(['Admin', 'Manager']), orderService.updateOrder);
-router.put('/api/orders/:orderId/cancel', authenticateToken, authorize(['Customer', 'Admin', 'Manager']), orderService.cancelOrder);
-router.get('/api/orders/:orderId/status', authenticateToken, authorize(['Customer']), orderService.getOrderStatus);
-router.put('/api/orders/:orderId/process', authenticateToken, authorize(['Admin', 'Manager']), orderService.processOrder);
-router.put('/api/orders/:orderId/ship', authenticateToken, authorize(['Admin', 'Manager']), orderService.shipOrder);
-router.put('/api/orders/:orderId/deliver', authenticateToken, authorize(['Admin', 'Manager']), orderService.deliverOrder);
+router.get('/api/orders',authorize(['Admin', 'Manager']), getAllOrders);
+router.get('/api/orders/:orderId', authorize(['Admin', 'Manager']), getOrderById);
+router.put('/api/orders/:orderId',  authorize(['Admin', 'Manager']), updateOrderSchema, update);
+router.put('/api/orders/:orderId/cancel', authorize(['Customer', 'Admin', 'Manager']), cancelOrder);
+router.put('/api/orders/:orderId/process',  authorize(['Admin', 'Manager']), processOrder);
+router.put('/api/orders/:orderId/ship',  authorize(['Admin', 'Manager']), shipOrder);
+router.put('/api/orders/:orderId/deliver',  authorize(['Admin', 'Manager']), deliverOrder);
 
 // Customer
-router.post('/api/orders', authenticateToken, authorize(['Customer']), orderService.createOrder);
-router.get('/api/orders/:orderId/status', orderService.getOrderStatus);
+router.post('/api/orders',  authorize(['Customer']), createOrderSchema, create);
+
 
 module.exports = router;
 
@@ -46,25 +44,65 @@ function getOrderById(req, res, next) {
         .catch(next);
 }
 
-// Create a new order
-function createOrder(req, res, next) {
-    orderService.createOrder(req.body)
-        .then(order => res.status(201).json(order)) // Respond with the created order
+function create(req, res, next) {
+    orderService.create(req.body)
+        .then(() => res.json({ message: 'Order Created' }))
         .catch(next);
 }
 
-// Update an existing order
+function createOrderSchema(req, res, next) {
+    const schema = Joi.object({
+        customerId: Joi.number().integer().required(),
+        totalAmount: Joi.number().required(),
+        role: Joi.string().valid(Role.Admin, Role.User, Role.Customer, Role.Manager).required(),
+        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
+    });
+
+    const { error } = schema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ message: error.details[0].message });
+    }
+
+    const { customerId, totalAmount, status } = req.body;
+
+    Order.create({
+        customerId,
+        totalAmount,
+        status: status || 'pending', 
+    })
+    .then(order => res.status(201).json(order))
+    .catch(err => {
+        console.error('Error creating order:', err);
+        res.status(500).json({ message: 'Internal server error' });
+    });
+}
+
 function update(req, res, next) {
     const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
 
     orderService.update(req.params.id, { 
-        ...req.body, 
+       ...req.body, 
         ipAddress, 
         browserInfo 
     })
     .then(() => res.json({ message: 'Order Updated' }))
     .catch(next);
+}
+
+function updateOrderSchema(req, res, next) {
+    const schema = Joi.object({
+        customerId: Joi.number().integer().optional(),
+        totalAmount: Joi.number().optional(),
+        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
+    });
+    validateRequest(req, next, schema);
+}
+
+function cancelOrder(req, res, next) {
+    orderService.cancel(req.params.id)
+        .then(() => res.json({ message: 'Order Cancelled' }))
+        .catch(next);
 }
 
 function processOrder(req, res, next) {
@@ -83,53 +121,5 @@ function deliverOrder(req, res, next) {
     orderService.updateOrderStatus(req.params.id, 'delivered')
         .then(() => res.json({ message: 'Order delivered' }))
         .catch(next);
-}
-
-
-
-
-// Cancel an order
-function cancel(req, res, next) {
-    orderService.cancel(req.params.id)
-        .then(() => res.json({ message: 'Order Cancelled' }))
-        .catch(next);
-}
-
-// Validate create order request
-function createOrder(req, res, next) {
-    const schema = Joi.object({
-        customerId: Joi.number().integer().required(),
-        totalAmount: Joi.number().required(),
-        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional() // optional, defaults to 'pending'
-    });
-
-    const { error } = schema.validate(req.body);
-    if (error) {
-        return res.status(400).json({ message: error.details[0].message });
-    }
-
-    const { customerId, totalAmount, status } = req.body;
-
-    Order.create({
-        customerId,
-        totalAmount,
-        status: status || 'pending', // Default to 'pending' if not provided
-    })
-    .then(order => res.status(201).json(order))
-    .catch(err => {
-        console.error('Error creating order:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    });
-}
-
-
-// Validate update order request
-function updateOrder(req, res, next) {
-    const schema = Joi.object({
-        customerId: Joi.number().integer().optional(),
-        totalAmount: Joi.number().optional(),
-        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
-    });
-    validateRequest(req, next, schema);
 }
 

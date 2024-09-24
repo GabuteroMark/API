@@ -1,22 +1,24 @@
-module.exports = authorize;
+const Role = require('_helpers/role');
 
-function authorize(roles = []) {
-    // roles param can be a single role string (e.g., 'Admin') or an array of roles (e.g., ['Admin', 'Manager'])
-    if (typeof roles === 'string') {
-        roles = [roles];
-    }
-
+module.exports = function (roles) {
     return (req, res, next) => {
-        if (!req.user) {
-            return res.status(401).json({ message: 'Unauthorized' }); // No user object, so unauthorized
-        }
-
+        // Check if the logged-in user's role is authorized
         if (!roles.includes(req.user.role)) {
-            // user's role is not authorized
-            return res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
+            return res.status(403).json({ message: 'Not authorized' });
         }
 
-        // authorized
+        // If the user is a 'User' role, they can only access their own data
+        if (req.user.role === Role.User) {
+            const loggedInUserId = req.user.id;      // ID of the logged-in user
+            const requestedUserId = parseInt(req.params.id, 10);  // ID being requested in the route
+
+            // Ensure that the user can only access their own data
+            if (loggedInUserId !== requestedUserId) {
+                return res.status(403).json({ message: 'Unauthorized to access this data' });
+            }
+        }
+
+        // If authorized, proceed to the next middleware
         next();
     };
 }

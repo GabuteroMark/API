@@ -7,13 +7,13 @@ const authorize = require('_middleware/authorize');
 
 
 // Administrator/Manager
-router.get('/api/orders',authorize(['Admin', 'Manager']), getAllOrders);
-router.get('/api/orders/:id', authorize(['Admin', 'Manager']), getOrderById);
-router.put('/api/orders/:id',  authorize(['Admin', 'Manager']), updateOrderSchema, update);
-router.put('/api/orders/:id/cancel', authorize(['Customer', 'Admin', 'Manager']), cancelOrder);
-router.put('/api/orders/:id/process',  authorize(['Admin', 'Manager']), processOrder);
-router.put('/api/orders/:id/ship',  authorize(['Admin', 'Manager']), shipOrder);
-router.put('/api/orders/:id/deliver',  authorize(['Admin', 'Manager']), deliverOrder);
+router.get('/',authorize(['Admin', 'Manager']), getAllOrders);
+router.get('/:id', authorize(['Admin', 'Manager']), getOrderById);
+router.put('/:id',  authorize(['Admin', 'Manager']), updateOrderSchema, update);
+router.put('/:id/cancel', authorize(['Customer', 'Admin', 'Manager']), cancelOrder);
+router.put('/:id/process',  authorize(['Admin', 'Manager']), processOrder);
+router.put('/:id/ship',  authorize(['Admin', 'Manager']), shipOrder);
+router.put('/:id/deliver',  authorize(['Admin', 'Manager']), deliverOrder);
 
 // Customer
 router.post('/api/orders',  authorize(['Customer']), createOrderSchema, create);

@@ -16,7 +16,7 @@ router.put('/:id/ship',  authorize(['Admin', 'Manager']), shipOrder);
 router.put('/:id/deliver',  authorize(['Admin', 'Manager']), deliverOrder);
 
 // Customer
-router.post('/api/orders',  authorize(['Customer']), createOrderSchema, create);
+router.post('/',  authorize(['Customer']), createOrderSchema, create);
 
 
 module.exports = router;

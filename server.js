@@ -5,7 +5,7 @@ const app = express();
 const cors = require('cors');
 const errorHandler = require('_middleware/error-handler');
 //const authenticateToken = require('_middleware/authenticateToken');
-const authorize = require('_middleware/authorize');
+//const authorize = require('_middleware/authorize');
 
 
 
@@ -13,13 +13,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 //app.use(authenticateToken);
-app.use(authorize(['Admin', 'Manager'])); 
+//app.use(authorize(['Admin', 'Manager'])); 
 
 
 
 app.use('/users', require('./users/users.controller'));
 app.use('/api/users', require('./users/users.controller'));
-app.use('/api/auth', require('./users/users.controller'));
+//app.use('/api/auth', require('./users/users.controller'));
 
 app.use('/api/orders', require('./order/order.controller'));
 

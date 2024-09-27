@@ -1,8 +1,6 @@
 module.exports = {
     Admin: 'Admin',
-    User: 'User',
-    Customer: 'Customer',
-    Manager : 'Manager'
+    User: 'User'
 }
 
 //const roles = {

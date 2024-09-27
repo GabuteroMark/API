@@ -1,14 +1,15 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('_helpers/db');
+const validateRequest = require('_middleware/validate-request');
 const { Sequelize, Op } = require('sequelize');
  
 
 module.exports = {
-    createOrder,
+    
     getAllOrders,
     getOrderById,
-    createOrder,
+    create,
     updateOrder,
     cancelOrder,
     getOrderStatus,
@@ -18,52 +19,70 @@ module.exports = {
 };
 
 async function getAllOrders(req, res, next) {
-    try {
-        const orders = await db.Order.findAll(); // Assuming db is your database object
-        res.json(orders);
-    } catch (err) {
-        next(err); // Pass the error to the errorHandler
-    }
+    return await db.User.findAll();
 }
 
 async function getOrderById(req, res, next) {
     try {
-        const order = await db.Order.findByPk(req.params.orderId);
+        const order = await db.Order.findByPk(req.params.orderId, {
+            include: [{
+                model: db.OrderItem, // Include the OrderItems in the result
+                as: 'items' // Alias for the relationship, if needed
+            }]
+        });
+
         if (!order) throw 'Order not found';
-        res.json(order);
+
+        res.json(order); // Return the order along with its items
     } catch (err) {
         next(err);
     }
 }
 
-async function createOrder(req, res, next) {
-    try {
-        const { customerId, totalAmount, items } = req.body; // Expecting customer ID and items to be in the request body
-        const newOrder = await db.Order.create({ customerId, totalAmount });
-        
-        // Assuming items need to be saved as well, and `OrderItem` is associated with `Order`
-        if (items && items.length > 0) {
-            await OrderItem.bulkCreate(items.map(item => ({
-                orderId: newOrder.id,
-                ...item // Assuming each item has the necessary fields
-            })));
-        }
-
-        res.status(201).json(newOrder);
-    } catch (err) {
-        next(err);
+async function create(params) {
+    // Check if the order with the same customerId already exists
+    const existingOrder = await db.Order.findOne({ where: { customerId: params.customerId } });
+    
+    if (existingOrder) {
+        throw new Error(`Order with customerId "${params.customerId}" is already placed.`);
     }
+
+    // If no existing order, create a new order
+    const newOrder = await db.Order.create(params);
+
+    // Optionally, return the new order
+    return newOrder;
 }
 
 async function updateOrder(req, res, next) {
+    const transaction = await db.sequelize.transaction();
     try {
         const order = await db.Order.findByPk(req.params.orderId);
         if (!order) throw 'Order not found';
 
-        // Only allow updating specific fields like status or shipping info
-        await order.update(req.body);
+        // Update the order details
+        await order.update(req.body, { transaction });
+
+        const { items } = req.body; // Assuming items to be updated are passed in the request body
+        if (items && items.length > 0) {
+            for (const item of items) {
+                const orderItem = await db.OrderItem.findOne({
+                    where: { orderId: order.id, productId: item.productId }
+                });
+
+                if (orderItem) {
+                    await orderItem.update({
+                        quantity: item.quantity,
+                        price: item.price
+                    }, { transaction });
+                }
+            }
+        }
+
+        await transaction.commit();
         res.json(order);
     } catch (err) {
+        await transaction.rollback();
         next(err);
     }
 }
@@ -109,6 +128,7 @@ async function processOrder(req, res, next) {
     }
 }
 
+
 async function shipOrder(req, res, next) {
     try {
         const order = await db.Order.findByPk(req.params.orderId);
@@ -123,6 +143,7 @@ async function shipOrder(req, res, next) {
     }
 }
 
+
 async function deliverOrder(req, res, next) {
     try {
         const order = await db.Order.findByPk(req.params.orderId);
@@ -136,3 +157,4 @@ async function deliverOrder(req, res, next) {
         next(err);
     }
 }
+

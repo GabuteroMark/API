@@ -3,20 +3,23 @@ const router = express.Router();
 const Joi = require('joi');
 const Role = require('_helpers/role');
 const orderService = require('./order.service'); 
-const authorize = require('_middleware/authorize');
+const validateRequest = require('_middleware/validate-request');
+//const authorize = require('_middleware/authorize');
+//const OrderItem = require('Model/OrderItem');
 
 
 // Administrator/Manager
-router.get('/',authorize(['Admin', 'Manager']), getAllOrders);
-router.get('/:id', authorize(['Admin', 'Manager']), getOrderById);
-router.put('/:id',  authorize(['Admin', 'Manager']), updateOrderSchema, update);
-router.put('/:id/cancel', authorize(['Customer', 'Admin', 'Manager']), cancelOrder);
-router.put('/:id/process',  authorize(['Admin', 'Manager']), processOrder);
-router.put('/:id/ship',  authorize(['Admin', 'Manager']), shipOrder);
-router.put('/:id/deliver',  authorize(['Admin', 'Manager']), deliverOrder);
+router.get('/', getAllOrders);
+router.get('/:id', getOrderById);
+router.put('/:id',  updateOrderSchema, update);
+router.put('/:id/cancel',cancelOrder);
+//router.get('/:id/status', getOrderStatus);
+router.put('/:id/process', processOrder);
+router.put('/:id/ship', shipOrder);
+router.put('/:id/deliver', deliverOrder);
 
 // Customer
-router.post('/',  authorize(['Customer']), createOrderSchema, create);
+router.post('/', createOrderSchema, create);
 
 
 module.exports = router;
@@ -49,27 +52,11 @@ function createOrderSchema(req, res, next) {
     const schema = Joi.object({
         customerId: Joi.number().integer().required(),
         totalAmount: Joi.number().required(),
-        role: Joi.string().valid(Role.Admin, Role.User, Role.Customer, Role.Manager).required(),
+        role: Joi.string().valid(Role.Admin, Role.User).required(),
         status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
     });
 
-    const { error } = schema.validate(req.body);
-    if (error) {
-        return res.status(400).json({ message: error.details[0].message });
-    }
-
-    const { customerId, totalAmount, status } = req.body;
-
-    Order.create({
-        customerId,
-        totalAmount,
-        status: status || 'pending', 
-    })
-    .then(order => res.status(201).json(order))
-    .catch(err => {
-        console.error('Error creating order:', err);
-        res.status(500).json({ message: 'Internal server error' });
-    });
+    validateRequest(req, next, schema);
 }
 
 function update(req, res, next) {

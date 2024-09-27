@@ -10,7 +10,7 @@ module.exports = {
     getAllOrders,
     getOrderById,
     create,
-    updateOrder,
+    //updateOrder,
     cancelOrder,
     getOrderStatus,
     processOrder,
@@ -22,9 +22,15 @@ async function getAllOrders(req, res, next) {
     return await db.Order.findAll();
 }
 
-async function getOrderById(id) {
-    return await getOrderById(id);
-} 
+async function getOrderById(customerId) {
+    return await getOrder(customerId);
+}
+
+async function getOrder(customerId) {
+    const order = await db.Order.findByPk(customerId);
+    if (!order) throw 'Order ad found';
+    return order;
+}
 
 async function create(params) {
     // Check if the order with the same customerId already exists
@@ -41,36 +47,43 @@ async function create(params) {
     return newOrder;
 }
 
-async function updateOrder(req, res, next) {
-    const transaction = await db.sequelize.transaction();
-    try {
-        const order = await db.Order.findByPk(req.params.orderId);
-        if (!order) throw 'Order not found';
+async function update(customerId, params) {
+    const user = await getOrder(customerId);
+    const oldData = user.toJSON(); // Get current user data as a plain object
+    const updatedFields = []; // Declare updatedFields array
 
-        // Update the order details
-        await order.update(req.body, { transaction });
+    const usernameChanged = params.username && user.username !== params.username;
+    if (usernameChanged && await db.User.findOne({ where: { username: params.username } })) {
+        throw 'Username "' + params.username + '" is already taken';
+    }
 
-        const { items } = req.body; // Assuming items to be updated are passed in the request body
-        if (items && items.length > 0) {
-            for (const item of items) {
-                const orderItem = await db.OrderItem.findOne({
-                    where: { orderId: order.id, productId: item.productId }
-                });
+    if (params.password) {
+        params.passwordHash = await bcrypt.hash(params.password, 10);
+    }
 
-                if (orderItem) {
-                    await orderItem.update({
-                        quantity: item.quantity,
-                        price: item.price
-                    }, { transaction });
-                }
+    // Check which fields have changed, excluding `ipAddress` and `browserInfo` from comparison
+    for (const key in params) {
+        if (params.hasOwnProperty(key) && !nonUserFields.includes(key)) {
+            if (oldData[key] !== params[key]) {
+                updatedFields.push(`${key}: ${oldData[key]} -> ${params[key]}`);
             }
         }
+    }
 
-        await transaction.commit();
-        res.json(order);
-    } catch (err) {
-        await transaction.rollback();
-        next(err);
+    Object.assign(user, params);
+
+    try {
+
+        await user.save();
+
+        // Log activity with updated fields
+        const updateDetails = updatedFields.length > 0 
+            ? `Updated fields: ${updatedFields.join(', ')}` 
+            : 'No fields changed';
+
+        await logActivity(user.id, 'update', params.ipAddress || 'Unknown IP', params.browserInfo || 'Unknown Browser', updateDetails);
+    } catch (error) {
+        console.error('Error logging activity:', error);
     }
 }
 

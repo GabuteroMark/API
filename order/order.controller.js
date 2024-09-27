@@ -46,6 +46,11 @@ function create(req, res, next) {
 function createOrderSchema(req, res, next) {
     const schema = Joi.object({
         customerId: Joi.number().integer().required(),
+        orderId: Joi.number().integer().required(),
+        productId: Joi.number().integer().required(),
+        productName: Joi.string().required(),
+        quantity: Joi.number().integer().required(),
+        price: Joi.number().required(),
         totalAmount: Joi.number().required(),
         role: Joi.string().valid(Role.Admin, Role.User).required(),
         status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
@@ -55,14 +60,7 @@ function createOrderSchema(req, res, next) {
 }
 
 function update(req, res, next) {
-    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-    const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
-
-    orderService.update(req.params.id, { 
-       ...req.body, 
-        ipAddress, 
-        browserInfo 
-    })
+    orderService.update(req.params.id)
     .then(() => res.json({ message: 'Order Updated' }))
     .catch(next);
 }

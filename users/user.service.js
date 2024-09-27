@@ -1,4 +1,3 @@
-
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const db = require('_helpers/db');
@@ -29,7 +28,7 @@ module.exports = {
     createPermission
 };
 
-//Simple CRUD
+//===============================Simple CRUD========================================
 async function getAll() {
     return await db.User.findAll();
 }
@@ -40,10 +39,23 @@ async function create(params) {
     if (await db.User.findOne({ where: { email: params.email } })) {
         throw 'Email "' + params.email + '" is already registered';
     }
-    
+
+    if (await db.User.findOne({ where: { userName: params.userName } })) {
+        throw 'userName "' + params.userName + '" is already registered';
+    }
     const user = new db.User(params);
     user.passwordHash = await bcrypt.hash(params.password, 10);
     await user.save();
+
+    const preferencesData = {
+        userId: user.id, // Reference to the newly created user's ID
+        theme: 'light',  // Default theme (you can modify these defaults as needed)
+        notifications: true,  // Default notifications preference
+        language: 'en'   // Default language
+    };
+
+    // Save the preferences for the user
+    await db.Preferences.create(preferencesData);
 }
 async function update(id, params) {
     const user = await getUser(id);
@@ -88,7 +100,7 @@ async function update(id, params) {
     }
 }
 
-// Delete user by ID 
+// ------------------------------------ Delete user by ID --------------------------------
 async function _delete(id) {
     const user = await getUser(id);
     await user.destroy();
@@ -98,7 +110,7 @@ async function getUser(id) {
     if (!user) throw 'User ad found';
     return user;
 }
-//Search functions
+//--------------------------Search functions-------------------------------------
 async function searchAll(query) {
     // Perform a case-insensitive search across multiple fields
     const users = await db.User.findAll({
@@ -163,7 +175,7 @@ async function search(params) {
     if (users.length === 0) throw new Error('No users found matching the search criteria');
     return users;
 }
-//Deactivate User
+//------------------------- Deactivate User -------------------------
 async function deactivate(id) {
     const user = await getUser(id);
     if (!user) throw 'User not found';
@@ -175,7 +187,7 @@ async function deactivate(id) {
     user.status = 'deactivated';
     await user.save();
 }
-//Reactivate User 
+//------------------------- Reactivate User -------------------------
 async function reactivate(id) {
     const user = await getUser(id);
     if (!user) throw 'User not found';
@@ -187,20 +199,25 @@ async function reactivate(id) {
     user.status = 'active';
     await user.save();
 }
-//Preferences Get & Update Function
-async function getPreferences(id, params) {
-    const preferences = await db.User.findOne({ where: { id: id }, attributes: [ 'id', 'theme', 'notifications', 'language' ] });
-    if (!preferences) throw 'User not found';
+//===================Preferences Get & Update Function===========================
+async function getPreferences(id) {
+    const preferences = await db.Preferences.findOne({
+        where: { userId: id },
+        attributes: ['id', 'userId','theme', 'notifications', 'language']
+    });
+    if (!preferences) throw new Error('User not found');
     return preferences;
 }
 async function updatePreferences(id, params) {
-    const preferences = await db.User.findOne({ where: { id } });
-    if (!preferences) throw 'User not found';
+    const preferences = await db.Preferences.findOne({ where: { userId: id } });
+    if (!preferences) throw new Error('User not found');
 
+    // Update only the provided fields
     Object.assign(preferences, params);
+
     await preferences.save();
 }
-//Change Password function
+//===================Change Password function==============================
 async function changePass(id, params) {
     const user = await db.User.scope('withHash').findOne({ where: { id } });
     if (!user) throw 'User does not exist';
@@ -230,9 +247,25 @@ async function changePass(id, params) {
         console.error('Error logging activity:', error);
     }
 }
-//Login wht Token function
+//===================Login wht Token function==============================
 async function login(params) {
-    const user = await db.User.scope('withHash').findOne({ where: { email: params.email } });
+    const { userName, email } = params;
+
+    // Ensure either email or userName is provided, but not both
+    if (!(userName || email)) {
+      throw new Error('Either email or userName must be provided.');
+    }
+    const query = { where: {} };
+    
+    if (userName) {
+      query.where.userName = userName;
+    } else if (email) {
+      query.where.email = email;
+    }
+    
+    // Perform the query using the constructed query object
+    const user = await db.User.scope('withHash').findOne(query);
+
     if (!user) throw 'User does not exist';
     
     // Check if the user's account is active
@@ -241,8 +274,9 @@ async function login(params) {
     const isPasswordValid = await bcrypt.compare(params.password, user.passwordHash);
     if (!isPasswordValid) throw 'Password Incorrect';
 
-    const token = jwt.sign({ id: params.id, email: params.email, firstName: params.firstName }, 
-        process.env.SECRET, {});
+    const token = jwt.sign(
+        { id: user.id, email: user.email, firstName: user.firstName},
+        process.env.SECRET,{ expiresIn: '1h'});
 
         user.lastDateLogin = new Date();  // Set current date and time
         await user.save();
@@ -255,9 +289,9 @@ async function login(params) {
 
     return { token };
 }
-//Logout function
-async function logout(id, params) {
-    const user = await db.User.findByPk(id);
+//===================Logout function==============================
+async function logout(params) {
+    const user = await db.User.scope('withHash').findOne({ where: { id: params.id } });
     if (!user) throw new Error('User not found');
 
     try {
@@ -272,10 +306,13 @@ async function logout(id, params) {
     } catch (error) {
         console.error('Error logging activity:', error);
     }
+    
+    user.lastLogoutAt = new Date();
+    await user.save();
 
-    return { message: 'User logged out successfully' };
+    return { message: 'Logged out successfully' };
 }
-//Logging function
+//===================Logging function==============================
 async function logActivity(userId, actionType, ipAddress, browserInfo, updateDetails = '') {
     try {
         // Create a new log entry in the 'activity_log' table
@@ -341,7 +378,7 @@ async function getUserActivities(userId, filters = {}) {
     }
 
 }
-//Permission function
+//===================Permission function==============================
 async function getPermission(id, params) {
     const permission = await db.User.findOne({ where: { id: id }, attributes: [ 'id', 'permission', 'updatedAt'] });
     if (!permission) throw 'User not found';

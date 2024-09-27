@@ -19,25 +19,12 @@ module.exports = {
 };
 
 async function getAllOrders(req, res, next) {
-    return await db.User.findAll();
+    return await db.Order.findAll();
 }
 
-async function getOrderById(req, res, next) {
-    try {
-        const order = await db.Order.findByPk(req.params.orderId, {
-            include: [{
-                model: db.OrderItem, // Include the OrderItems in the result
-                as: 'items' // Alias for the relationship, if needed
-            }]
-        });
-
-        if (!order) throw 'Order not found';
-
-        res.json(order); // Return the order along with its items
-    } catch (err) {
-        next(err);
-    }
-}
+async function getOrderById(id) {
+    return await getOrderById(id);
+} 
 
 async function create(params) {
     // Check if the order with the same customerId already exists

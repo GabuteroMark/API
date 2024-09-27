@@ -1,3 +1,4 @@
+// middleware/authorize.js
 const Role = require('_helpers/role');
 
 module.exports = function (roles) {

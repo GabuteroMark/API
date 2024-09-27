@@ -33,12 +33,7 @@ function getAllOrders(req, res, next) {
 
 function getOrderById(req, res, next) {
     orderService.getOrderById(req.params.id)
-        .then(order => {
-            if (!order) {
-                return res.status(404).send({ message: 'Order not found' });
-            }
-            res.json(order);
-        })
+        .then(order => res.json(order))
         .catch(next);
 }
 

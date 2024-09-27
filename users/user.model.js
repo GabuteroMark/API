@@ -4,8 +4,9 @@ module.exports = model;
 
 function model(sequelize) {
     const attributes = {
-        //For Profile
+        //======For Profile=================
         email: { type: DataTypes.STRING, allowNull: false },
+        userName: { type: DataTypes.STRING, allowNull: false },
         passwordHash: { type: DataTypes.STRING, allowNull: false },
         title: { type: DataTypes.STRING, allowNull: false },
         firstName: { type: DataTypes.STRING, allowNull: false },
@@ -13,18 +14,16 @@ function model(sequelize) {
         role: { type: DataTypes.STRING, allowNull: false },
         profilePic: { type: DataTypes.STRING, allowNull: false },
 
-        //For Preferences
-        theme: { type: DataTypes.ENUM('light', 'dark'), allowNull: false, defaultValue: 'light' },
-        notifications: { type: DataTypes.BOOLEAN, allowNull: true, defaultValue: true },
-        language: { type: DataTypes.ENUM('en', 'fr'), allowNull: false, defaultValue: 'en' },
+        //======For Preferences=================
 
-        //For Logging
+        //======For Logging=================
         status: { type: DataTypes.ENUM('deactivated', 'active'), allowNull: false, defaultValue: 'active'},
 
           // Date last logged in
         lastDateLogin: { type: DataTypes.DATE, allowNull: true },
+        lastLogoutAt: { type: DataTypes.DATE, allowNull: true },
 
-        //For Permission
+        //======For Permission=================
         permission: { type: DataTypes.ENUM('grant', 'revoke'), allowNull: false, defaultValue: 'revoke'}
     
 
@@ -32,10 +31,7 @@ function model(sequelize) {
     
     const options = {
         defaultScope: {
-            attributes: { exclude: [
-                'passwordHash', 
-                'theme', 'notifications', 'language'
-                ] 
+            attributes: { exclude: ['passwordHash' ] 
             }
         },
         scopes: {

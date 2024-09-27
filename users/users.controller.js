@@ -1,34 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
+const validateRequest = require('_middleware/validate-request');
 const Role = require('_helpers/role');
 const userService = require('./user.service');
+const authenticate = require('_middleware/authenticate');
+const authorize = require('_middleware/authorize');
 
-router.get('/', getAll); 
-router.get('/search', search);
-router.get('/searchAll', searchAll);  
-router.get('/:id', getById);
-router.post('/', createSchema, create);
-router.put('/:id', updateSchema, update);
-router.delete('/:id', _delete);
+router.get('/',authenticate,authorize([Role.Admin]), getAll); 
+router.get('/search',authorize([Role.Admin]), search);
+router.get('/searchAll',authorize([Role.Admin]), searchAll);  
+router.get('/:id', authenticate,authorize([Role.Admin, Role.User]),getById);
+router.post('/',createSchema, create);
+router.put('/:id',authenticate,authorize([Role.Admin, Role.User]),updateSchema, update);
+router.delete('/:id',authenticate,authorize([Role.Admin]),_delete);
 
-router.put('/:id/role', updateRoleSchema, updateRole);
+router.put('/:id/role', authenticate,authorize([Role.Admin]),updateRoleSchema, updateRole);
 
-router.get('/:id/preferences', getPreferences);
-router.put('/:id/preferences', updatePreferences);
+router.get('/:id/preferences', authenticate,authorize([Role.Admin, Role.User]),getPreferences);
+router.put('/:id/preferences', authenticate,authorize([Role.Admin, Role.User]),updatePreferences);
 
-router.put('/:id/password', changePassSchema, changePass);
+router.put('/:id/password', authenticate,authorize([Role.Admin, Role.User]),changePassSchema, changePass);
 
 router.post('/login', loginSchema, login);
-router.post('/:id/logout', logout);
-router.get('/:id/activity', getActivities);
+router.post('/logout', authenticate, logout, logoutSchema);
+router.get('/:id/activity',authenticate,authorize([Role.Admin, Role.User]), getActivities);
 
-router.put('/:id/deactivate', deactivateUser);
-router.put('/:id/reactivate', reactivateUser);
+router.put('/:id/deactivate',authenticate,authorize([Role.Admin, Role.User]), deactivateUser);
+router.put('/:id/reactivate',authenticate,authorize([Role.Admin, Role.User]), reactivateUser);
 
-router.get('/:id/permission', getPermission);
-router.post('/:id/permission', createPermission);
-
+router.get('/:id/permission',authenticate,authorize([Role.Admin]), getPermission);
+router.post('/:id/permission',authenticate,authorize([Role.Admin]), createPermission);
 
 
 module.exports = router;
@@ -72,6 +74,7 @@ function createSchema(req, res, next) {
         lastName: Joi.string().required(),
         role: Joi.string().valid(Role.Admin, Role.User).required(),
         email: Joi.string().email().required(),
+        userName: Joi.string().required(),
         password: Joi.string().min(6).required(),
         confirmPassword: Joi.string().valid(Joi.ref('password')).required(),
         profilePic: Joi.string().required()
@@ -83,6 +86,7 @@ function updateSchema(req, res, next) {
     const schema = Joi.object({
         title: Joi.string().empty(''),
         firstName: Joi.string().empty(''),
+        userName: Joi.string().empty(''),
         lastName: Joi.string().empty(''),
         email: Joi.string().email().empty(''),
         password: Joi.string().min(6).empty(''),
@@ -92,7 +96,7 @@ function updateSchema(req, res, next) {
     validateRequest(req, next, schema);
 }
 
-//pdate role route
+//====================Update role route===============================================
 function updateRole(req, res, next) {
     userService.update(req.params.id, req.body)
     .then(() => res.json({ message: 'Role updated' }))
@@ -104,7 +108,7 @@ function updateRoleSchema(req, res, next) {
     })
     validateRequest(req, next, schema);
 }
-//Preferences Router Function
+//====================Preferences Router Function=========================
 function getPreferences(req, res, next) {
     userService.getPreferences(req.params.id)
         .then(preferences => res.json(preferences))
@@ -115,7 +119,7 @@ function updatePreferences(req, res, next) {
         .then(() => res.json({ message: 'Preferences updated successfully' }))
         .catch(next);
 }
-//Change Password Function
+//===================Change Password Function=======================================
 function changePass(req, res, next) {
     // Add IP address and browser info to the request body if available
     req.body.ipAddress = req.ip || 'Unknown IP';
@@ -133,7 +137,7 @@ function changePassSchema(req, res, next) {
     })
     validateRequest(req, next, schema);
 }
-//Login with Token Function
+//====================Login with Token Function=========================
 function login(req, res, next) {
     const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
@@ -144,23 +148,47 @@ function login(req, res, next) {
 }
 function loginSchema(req, res, next) {
     const schema = Joi.object({
-        email: Joi.string().email().required(),
+        userName: Joi.string().empty(),
+        email: Joi.string().email().empty(),
         password: Joi.string().required()
+    }).xor('userName', 'email') 
+        .messages({
+        'object.missing': 'Either email or userName must be provided.',
+        'object.xor': 'Both email and userName cannot be provided at the same time.'
+    })
+
+    validateRequest(req, next, schema);
+}
+//====================Logout Function=========================
+function logout(req, res, next) {// Assuming the user is authenticated and the `authenticate` middleware has added user info to `req.user`
+    const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const browserInfo = req.headers['user-agent'] || 'Unknown Browser';
+
+    userService.logout({
+        id: req.user.id, // Use the authenticated user's ID from the token
+        ipAddress,
+        browserInfo
+    })
+    .then(response => res.json(response))
+    .catch(next);
+    
+    // Check for specific error types or messages and return appropriate response
+    if (error.message === 'User not found') {
+        return res.status(404).json({ error: 'User not found. Please check the ID and try again.' });
+    }
+    if (error.message === 'ID mismatch') {
+        return res.status(403).json({ error: 'The provided ID does not match the logged-in user. Access denied.' });
+    }
+    return res.status(500).json({ error: 'An error occurred during logout. Please try again later.' });
+}
+function logoutSchema(req, res, next) {
+    const schema = Joi.object({
+        id: Joi.int().integer().required()
     });
     validateRequest(req, next, schema);
 }
-//Logout Function
-function logout(req, res, next) {
-    const id = req.params.id; // Extract user ID from the route params
-    const ipAddress = req.ip || 'Unknown IP'; // Extract IP address from the request object
-    const browserInfo = req.headers['user-agent'] || 'Unknown Browser'; // Extract browser info from headers
 
-    // Call the user service with the extracted information
-    userService.logout(id, { ipAddress, browserInfo })
-        .then(response => res.json(response))
-        .catch(next);
-}
-//Deactivate & Reactivate Function
+//====================Deactivate & Reactivate Function=========================
 function deactivateUser(req, res, next) {
     userService.deactivate(req.params.id)
         .then(() => res.json({ message: 'User deactivated successfully' }))
@@ -171,7 +199,7 @@ function reactivateUser(req, res, next) {
         .then(() => res.json({ message: 'User reactivated successfully' }))
         .catch(next);
 }
-//Logging Function
+//===================Logging Function=======================================
 function getActivities(req, res, next) {
     const filters = {
         actionType: req.query.actionType,
@@ -182,7 +210,7 @@ function getActivities(req, res, next) {
         .then(activities => res.json(activities))
         .catch(next);
 }
-//Search Route
+//===================Search Route========================================
 function search(req, res, next) {
     const { email, title, firstName, lastName, role, fullName, status, dateCreated, lastDateLogin} = req.query;
 
@@ -205,7 +233,7 @@ function searchAll(req, res, next) {
         .then(users => res.json(users))
         .catch(next);
 }
-//Permission Route
+//===================Permission Route========================================
 function getPermission(req, res, next) {
     userService.getPermission(req.params.id)
         .then(permission => res.json(permission))

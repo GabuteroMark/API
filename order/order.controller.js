@@ -67,9 +67,10 @@ function update(req, res, next) {
 
 function updateOrderSchema(req, res, next) {
     const schema = Joi.object({
-        customerId: Joi.number().integer().optional(),
-        totalAmount: Joi.number().optional(),
-        status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').optional()
+        productName: Joi.string().empty(''),
+        quantity: Joi.number().empty(''),
+        price: Joi.number().empty(''),
+        totalAmount: Joi.number().empty('')
     });
     validateRequest(req, next, schema);
 }

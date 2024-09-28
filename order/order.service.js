@@ -10,7 +10,8 @@ module.exports = {
     getAllOrders,
     getOrderById,
     create,
-    //updateOrder,
+    update,
+   // findByIdAndUpdate,
     cancelOrder,
     getOrderStatus,
     processOrder,
@@ -47,45 +48,23 @@ async function create(params) {
     return newOrder;
 }
 
-async function update(customerId, params) {
-    const user = await getOrder(customerId);
-    const oldData = user.toJSON(); // Get current user data as a plain object
-    const updatedFields = []; // Declare updatedFields array
-
-    const usernameChanged = params.username && user.username !== params.username;
-    if (usernameChanged && await db.User.findOne({ where: { username: params.username } })) {
-        throw 'Username "' + params.username + '" is already taken';
-    }
-
-    if (params.password) {
-        params.passwordHash = await bcrypt.hash(params.password, 10);
-    }
-
-    // Check which fields have changed, excluding `ipAddress` and `browserInfo` from comparison
-    for (const key in params) {
-        if (params.hasOwnProperty(key) && !nonUserFields.includes(key)) {
-            if (oldData[key] !== params[key]) {
-                updatedFields.push(`${key}: ${oldData[key]} -> ${params[key]}`);
-            }
-        }
-    }
-
-    Object.assign(user, params);
-
+async function update(id) {
     try {
-
-        await user.save();
-
-        // Log activity with updated fields
-        const updateDetails = updatedFields.length > 0 
-            ? `Updated fields: ${updatedFields.join(', ')}` 
-            : 'No fields changed';
-
-        await logActivity(user.id, 'update', params.ipAddress || 'Unknown IP', params.browserInfo || 'Unknown Browser', updateDetails);
+        const update = await Order.findById(id, { new: true });
+        if (!update) {
+            throw new Error('Order not found');
+        }
+        return update;
     } catch (error) {
-        console.error('Error logging activity:', error);
+        throw new Error(`Error updating order: ${error.message}`);
     }
 }
+
+//async function findByIdAndUpdate (id) {
+    //const order = await db.Order.findByPk(id);
+   // if (!order) throw 'Order ad found';
+   // return order;
+//}
 
 async function cancelOrder(req, res, next) {
     try {

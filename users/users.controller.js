@@ -62,6 +62,7 @@ function update(req, res, next) {
     .then(() => res.json({ message: 'User updated' }))
     .catch(next);
 }
+
 function _delete(req, res, next) {
     userService.delete(req.params.id)
         .then(() => res.json({ message: 'User deleted' }))

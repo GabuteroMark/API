@@ -4,7 +4,7 @@ const Joi = require('joi');
 const Role = require('_helpers/role');
 const orderService = require('./order.service'); 
 const validateRequest = require('_middleware/validate-request');
-//const authorize = require('_middleware/authorize');
+ //const authorize = require('_middleware/authorize');
 //const OrderItem = require('Model/OrderItem');
 
 
@@ -13,7 +13,7 @@ router.get('/', getAllOrders);
 router.get('/:id', getOrderById);
 router.put('/:id',  updateOrderSchema, update);
 router.put('/:id/cancel',cancelOrder);
-//router.get('/:id/status', getOrderStatus);
+router.get('/:id/status', trackOrderStatus);
 router.put('/:id/process', processOrder);
 router.put('/:id/ship', shipOrder);
 router.put('/:id/deliver', deliverOrder);
@@ -84,27 +84,51 @@ function updateOrderSchema(req, res, next) {
 }
 
 
+//function cancelOrder(req, res, next) {
+  //  orderService.cancel(req.params.id)
+    //    .then(() => res.json({ message: 'Order Cancelled' }))
+     //   .catch(next);
+//}
+
+
 function cancelOrder(req, res, next) {
-    orderService.cancel(req.params.id)
-        .then(() => res.json({ message: 'Order Cancelled' }))
+    orderService.cancelOrder(req.params.id)
+        .then(() => res.json({ message: 'Order cancelled Successfully' }))
         .catch(next);
 }
 
+
+
+//track order 
+function trackOrderStatus(req, res, next) {
+    const id = req.params.id;  
+    orderService.trackOrderStatus(id) 
+        .then(status => res.json({ status }))  
+        .catch(next); 
+}
+
+//process order
 function processOrder(req, res, next) {
-    orderService.updateOrderStatus(req.params.id, 'processed')
-        .then(() => res.json({ message: 'Order processed' }))
-        .catch(next);
+    const id = req.params.id;  
+    orderService.processOrder(id)  
+        .then(() => res.json({ message: 'Order processed successfully.' })) 
+        .catch(next);  
 }
 
+
+//ship order
 function shipOrder(req, res, next) {
-    orderService.updateOrderStatus(req.params.id, 'shipped')
-        .then(() => res.json({ message: 'Order shipped' }))
-        .catch(next);
+    const id = req.params.id;  
+    orderService.shipOrder(id)  
+        .then(() => res.json({ message: 'Order shipped successfully.' })) 
+        .catch(next);  
 }
 
+
+//deliver order
 function deliverOrder(req, res, next) {
-    orderService.updateOrderStatus(req.params.id, 'delivered')
-        .then(() => res.json({ message: 'Order delivered' }))
-        .catch(next);
+    const orderId = req.params.id;  
+    orderService.deliverOrder(orderId)  
+        .then(() => res.json({ message: 'Order delivered successfully.' })) 
+        .catch(next);  
 }
-

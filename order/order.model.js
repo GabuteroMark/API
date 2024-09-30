@@ -4,7 +4,6 @@ const db = require('_helpers/db');
 module.exports = (sequelize) => {
     const Order = sequelize.define('Order', {
         customerId: {type: DataTypes.INTEGER, allowNull: false},
-        orderId: {type: DataTypes.INTEGER, allowNull: false},
         productId: {type: DataTypes.INTEGER, allowNull: false},
         productName: { type: DataTypes.STRING, allowNull: false },
         quantity: {type: DataTypes.INTEGER, allowNull: false},
@@ -18,9 +17,4 @@ module.exports = (sequelize) => {
     return Order; 
 };
 
-//Order.associate = function(models) {
-    //Order.hasMany(models.OrderItem, {
-       // foreignKey: 'orderId',
-        //as: 'items' // This alias will allow us to refer to the order's items as `order.items`
-    //});
-//};
+

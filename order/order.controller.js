@@ -8,35 +8,37 @@ const validateRequest = require('_middleware/validate-request');
 //const OrderItem = require('Model/OrderItem');
 
 
-// Administrator/Manager
+
 router.get('/', getAllOrders);
 router.get('/:id', getOrderById);
 router.put('/:id',  updateOrderSchema, update);
 router.put('/:id/cancel',cancelOrder);
-//router.get('/:id/status', getOrderStatus);
+router.get('/:id/status', trackOrderStatus);
 router.put('/:id/process', processOrder);
 router.put('/:id/ship', shipOrder);
 router.put('/:id/deliver', deliverOrder);
 
-// Customer
+
 router.post('/', createOrderSchema, create);
 
 
 module.exports = router;
 
-// Retrieve all orders (Only Admins and Managers can access this)
+//getall
 function getAllOrders(req, res, next) {
     orderService.getAllOrders()
         .then(orders => res.json(orders))
         .catch(next);
 }
 
+//get by id
 function getOrderById(req, res, next) {
     orderService.getOrderById(req.params.id)
         .then(order => res.json(order))
         .catch(next);
 }
 
+// create order
 function create(req, res, next) {
     orderService.create(req.body)
         .then(() => res.json({ message: 'Order Created' }))
@@ -46,7 +48,6 @@ function create(req, res, next) {
 function createOrderSchema(req, res, next) {
     const schema = Joi.object({
         customerId: Joi.number().integer().required(),
-        orderId: Joi.number().integer().required(),
         productId: Joi.number().integer().required(),
         productName: Joi.string().required(),
         quantity: Joi.number().integer().required(),
@@ -59,10 +60,11 @@ function createOrderSchema(req, res, next) {
     validateRequest(req, next, schema);
 }
 
+//update order
 function update(req, res, next) {
-    orderService.update(req.params.id)
-    .then(() => res.json({ message: 'Order Updated' }))
-    .catch(next);
+    orderService.update(req.params.id ,req.body)
+        .then(() => res.json({ message: 'Order Updated' }))
+        .catch(next);
 }
 
 function updateOrderSchema(req, res, next) {
@@ -75,27 +77,45 @@ function updateOrderSchema(req, res, next) {
     validateRequest(req, next, schema);
 }
 
+//cancel order
 function cancelOrder(req, res, next) {
-    orderService.cancel(req.params.id)
+    orderService.cancelOrder(req.params.id) 
         .then(() => res.json({ message: 'Order Cancelled' }))
         .catch(next);
 }
 
+
+//track order 
+function trackOrderStatus(req, res, next) {
+    const id = req.params.id;  
+    orderService.getOrderStatus(id) 
+        .then(status => res.json({ status }))  
+        .catch(next); 
+}
+
+//process order
 function processOrder(req, res, next) {
-    orderService.updateOrderStatus(req.params.id, 'processed')
-        .then(() => res.json({ message: 'Order processed' }))
-        .catch(next);
+    const id = req.params.id;  
+    orderService.processOrder(id)  
+        .then(() => res.json({ message: 'Order processed successfully.' })) 
+        .catch(next);  
 }
 
+
+//ship order
 function shipOrder(req, res, next) {
-    orderService.updateOrderStatus(req.params.id, 'shipped')
-        .then(() => res.json({ message: 'Order shipped' }))
-        .catch(next);
+    const id = req.params.id;  
+    orderService.shipOrder(id)  
+        .then(() => res.json({ message: 'Order shipped successfully.' })) 
+        .catch(next);  
 }
 
+
+//deliver order
 function deliverOrder(req, res, next) {
-    orderService.updateOrderStatus(req.params.id, 'delivered')
-        .then(() => res.json({ message: 'Order delivered' }))
-        .catch(next);
+    const orderId = req.params.id;  
+    orderService.deliverOrder(orderId)  
+        .then(() => res.json({ message: 'Order delivered successfully.' })) 
+        .catch(next);  
 }
 

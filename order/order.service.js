@@ -62,6 +62,10 @@ async function update(id, params) {
         if (order.status === 'cancelled') {
             throw new Error('Order is already cancelled');
         }
+
+        if (['processed', 'shipped', 'delivered'].includes(order.status)) {
+            throw new Error('Order cannot be update');
+        }
         
         Object.assign(order, params);
         await order.save();

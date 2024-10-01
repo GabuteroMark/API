@@ -16,7 +16,12 @@ async function initialize() {
 
     const sequelize = new Sequelize(database, user, password, { dialect: 'mysql' });
 
-    
+    db.Account = requiere('../accounts/account.model')(sequelize);
+    db.RefreshToken = requiere('../accounts/refresh-token.model')(sequelize);
+
+    db.Account.hasMany(db.RefreshToken,{ onDelete: 'CASCADE' });
+    db.RefreshToken.belongsTo(db.Account);
+
     db.ActivityLog = require('../models/activitylog.model')(sequelize);
     db.Order = require('../order/order.model')(sequelize);
     

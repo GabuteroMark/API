@@ -7,6 +7,10 @@ function errorHandler(err, req, res, next) {
             const is404 = err.toLowerCase().endsWith('not found');
             const statusCode = is404 ? 404 : 400;
             return res.status(statusCode).json({message: err });
+
+            case err.name === 'UnauthorizedError':
+            return res.status(401).json({ message: 'Unauthorized'});
+
             case err.message && err.message.toLowerCase().includes('deactivated'):
                 return res.status(403).json({ message: 'Account is deactivated' });
         default:

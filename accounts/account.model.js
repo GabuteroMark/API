@@ -10,7 +10,7 @@ const attributes = {
     firstName: { type: DataTypes.STRING, allowNull: false }, 
     lastName: { type: DataTypes.STRING, allowNull: false }, 
     acceptTerms: { type: DataTypes.BOOLEAN },
-    role: { type: DataTypes.STRING, allowNull: false }, 
+    role: { type: DataTypes.STRING, allowNull: true }, 
     verificationToken: { type: DataTypes.STRING },
     verified: { type: DataTypes.DATE },
     resetToken: {type: DataTypes.STRING },

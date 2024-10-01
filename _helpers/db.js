@@ -16,8 +16,8 @@ async function initialize() {
 
     const sequelize = new Sequelize(database, user, password, { dialect: 'mysql' });
 
-    db.Account = requiere('../accounts/account.model')(sequelize);
-    db.RefreshToken = requiere('../accounts/refresh-token.model')(sequelize);
+    db.Account = require('../accounts/account.model')(sequelize);
+    db.RefreshToken = require('../accounts/refresh-token.model')(sequelize);
 
     db.Account.hasMany(db.RefreshToken,{ onDelete: 'CASCADE' });
     db.RefreshToken.belongsTo(db.Account);
